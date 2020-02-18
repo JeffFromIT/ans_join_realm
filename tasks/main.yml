@@ -1,0 +1,47 @@
+---
+# tasks file for lin_join_domain
+
+ - name: Ensure Necessary Packages are installed
+   yum:
+    name: "{{ ad_packages }}"
+   vars:
+    ad_packages:
+    - sssd
+    - realmd
+    - oddjob
+    - oddjob-mkhomedir
+    - samba-common-tools
+    - pam_krb5
+    - krb5-workstation
+
+ - name: Join the Domain
+   expect:
+    command: "realm join -v <domain_name> -U {{ bind_user }}@<domain_name>
+    responses:
+     Password for *: "{{ bind_password }}"
+
+ - name: Delete the default SSSD Config
+   file:
+    path: /etc/sssd/sssd.conf
+    state: absent
+
+ - name: Configure SSSD
+   template:
+    src: sssd.conf.j2
+    dest: /etc/sssd/sssd.conf
+    owner: root
+    group: root
+    mode: 0600
+
+ - name: Deny GenPop Access
+   command: realm deny --all
+
+ - pause:
+    seconds: 10
+    prompt: "Waiting for SSSD to catch up"
+
+ - name: Restart SSSD Service
+   service:
+    name: sssd
+    state: restarted
+
